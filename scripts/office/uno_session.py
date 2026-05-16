@@ -57,11 +57,10 @@ def ensure_spreadsheet(document: Any) -> Any:
     return document
 
 
-def open_spreadsheet(desktop: Any, path: str | Path, hidden: bool = False) -> Any:
+def open_spreadsheet(desktop: Any, path: str | Path) -> Any:
     uno = import_uno()
     file_url = uno.systemPathToFileUrl(str(Path(path).resolve()))
-    props = [make_property("Hidden", hidden)]
-    document = desktop.loadComponentFromURL(file_url, "_blank", 0, tuple(props))
+    document = desktop.loadComponentFromURL(file_url, "_blank", 0, ())
     if document is None:
         raise RuntimeError(f"LibreOffice could not open spreadsheet: {path}")
     return ensure_spreadsheet(document)

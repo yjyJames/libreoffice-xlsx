@@ -83,7 +83,6 @@ def build_parser() -> argparse.ArgumentParser:
     open_cmd = subparsers.add_parser("open", help="Open a spreadsheet.")
     add_connection_options(open_cmd)
     open_cmd.add_argument("file")
-    open_cmd.add_argument("--hidden", action="store_true")
     open_cmd.set_defaults(func=with_document(cmd_open, needs_document=False))
 
     get_cell = subparsers.add_parser("getCell", help="Read a cell.")
@@ -294,7 +293,7 @@ def cmd_status(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_open(args: argparse.Namespace, desktop: Any, document: Any | None) -> dict[str, Any]:
-    opened = open_spreadsheet(desktop, args.file, hidden=args.hidden)
+    opened = open_spreadsheet(desktop, args.file)
     return document_info(opened)
 
 
