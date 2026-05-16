@@ -85,13 +85,25 @@ First try to use the existing default UNO connection:
 python scripts/uno_api.py status --host 127.0.0.1 --port 2002
 ```
 
-If that direct UNO connection succeeds, use the existing LibreOffice session and active workbook. If it fails because `127.0.0.1:2002` is not accepting UNO connections, then start or reuse LibreOffice through the CLI wrapper:
+If that direct UNO connection succeeds, use the existing LibreOffice session and active workbook. If it fails because `127.0.0.1:2002` is not accepting UNO connections, then connect to or start LibreOffice through the CLI wrapper:
 
 ```bash
-python scripts/uno_api.py connect --file workbook.xlsx
+python scripts/uno_api.py connect
 ```
 
-`connect` must first attempt a real UNO connection to the target socket before starting LibreOffice; do not use a raw TCP socket probe as the decision point. With no explicit `--host` or `--port`, the target socket is always the default `127.0.0.1:2002`; do not let an old `.uno-api/session.json` change the target for `connect`. If the UNO connection succeeds, reuse it directly. Only when the UNO connection fails should `connect --file` start LibreOffice with a visible window and open the workbook. Use `--headless` only when a non-interactive run is required, and use `--isolated-profile` when the user's existing LibreOffice profile conflicts with automation.
+If `connect` fails, start a new LibreOffice instance:
+
+```bash
+python scripts/uno_api.py start
+```
+
+Then open the workbook:
+
+```bash
+python scripts/uno_api.py open workbook.xlsx
+```
+
+`connect` attempts a real UNO connection to the target socket and only succeeds if LibreOffice is already running; do not use a raw TCP socket probe as the decision point. `start` always launches a new LibreOffice process with a UNO socket listener. With no explicit `--host` or `--port`, the target socket is always the default `127.0.0.1:2002`; do not let an old `.uno-api/session.json` change the target. Use `--headless` only when a non-interactive run is required, and use `--isolated-profile` when the user's existing LibreOffice profile conflicts with automation.
 
 The default socket is:
 
@@ -101,7 +113,7 @@ uno:socket,host=127.0.0.1,port=2002;urp;StarOffice.ComponentContext
 
 The command writes `.uno-api/session.json`; later non-`connect` commands use that host/port by default. Override with `--host` and `--port` when needed.
 
-If `uno-api connect` cannot start LibreOffice, start LibreOffice from the user's current shell. Use the command form that matches the environment:
+If `uno-api start` cannot start LibreOffice, start LibreOffice from the user's current shell. Use the command form that matches the environment:
 
 ```powershell
 "$env:LIBRE_OFFICE_HOME\soffice.exe" '--accept=socket,host=127.0.0.1,port=2002;urp;StarOffice.ComponentContext' --norestore --nofirststartwizard
@@ -121,7 +133,7 @@ soffice \
   --nofirststartwizard
 ```
 
-If Python reports `couldn't connect to socket`, do not attempt alternate connection modes. Run `python scripts/uno_api.py connect`, or fully close LibreOffice and reopen it with the socket listener command.
+If Python reports `couldn't connect to socket`, do not attempt alternate connection modes. Run `python scripts/uno_api.py start`, or fully close LibreOffice and reopen it with the socket listener command.
 
 ## LIBRE_OFFICE_HOME
 
@@ -171,7 +183,7 @@ For lower-level UNO API examples, read `references/libreoffice-python-sdk.md`.
 
 1. Try a direct UNO connection to `127.0.0.1:2002` with `python scripts/uno_api.py status --host 127.0.0.1 --port 2002`.
 2. If the direct connection succeeds, use the existing LibreOffice session and active workbook.
-3. If the direct connection fails, run `python scripts/uno_api.py connect --file <workbook>` to start LibreOffice and open the workbook.
+3. If the direct connection fails, try `python scripts/uno_api.py connect` to reuse a running LibreOffice. If `connect` fails, run `python scripts/uno_api.py start` to start LibreOffice. Then `python scripts/uno_api.py open <workbook>` to open the workbook.
 4. Use `python scripts/uno_api.py status` to confirm a Calc workbook and active sheet are available.
 5. Prefer `uno-api` commands for common read/write, sheet, save, recalc, and formula validation operations.
 6. Use spreadsheet formulas instead of Python-calculated hardcoded outputs unless the user explicitly asks for static values.
@@ -182,12 +194,14 @@ For lower-level UNO API examples, read `references/libreoffice-python-sdk.md`.
 
 ## uno-api commands
 
-### Connect, status, open, save
+### Connect, start, status, open, save
 
 ```bash
-python scripts/uno_api.py connect --file workbook.xlsx
-python scripts/uno_api.py connect --headless --isolated-profile
+python scripts/uno_api.py connect
+python scripts/uno_api.py start
+python scripts/uno_api.py start --headless --isolated-profile
 python scripts/uno_api.py status
+python scripts/uno_api.py open workbook.xlsx
 python scripts/uno_api.py open workbook.xlsx --hidden
 python scripts/uno_api.py recalc
 python scripts/uno_api.py save
@@ -238,7 +252,7 @@ Failed commands return:
   "error": {
     "code": "UNO_SOCKET_CONNECT_FAILED",
     "message": "Could not connect to LibreOffice UNO socket at 127.0.0.1:2002.",
-    "hint": "Run: uno-api connect"
+    "hint": "Run: uno-api start"
   }
 }
 ```

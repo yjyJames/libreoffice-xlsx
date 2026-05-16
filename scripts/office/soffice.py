@@ -116,13 +116,16 @@ def start_soffice(
     profile: str | Path | None = None,
 ) -> subprocess.Popen[bytes]:
     args = build_soffice_args(host, port, headless=headless, profile=profile)
-    return subprocess.Popen(
-        args,
+    kwargs: dict[str, object] = dict(
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        close_fds=os.name != "nt",
     )
+    if os.name == "nt":
+        kwargs["creationflags"] = subprocess.DETACHED_PROCESS
+    else:
+        kwargs["close_fds"] = True
+    return subprocess.Popen(args, **kwargs)
 
 
 def wait_for_socket(

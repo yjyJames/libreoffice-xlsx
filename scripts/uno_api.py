@@ -65,14 +65,16 @@ def build_parser() -> argparse.ArgumentParser:
         subparser.add_argument("--host", default=None)
         subparser.add_argument("--port", type=int, default=None)
 
-    connect = subparsers.add_parser("connect", help="Start or reuse a LibreOffice UNO listener.")
+    connect = subparsers.add_parser("connect", help="Connect to a running LibreOffice UNO listener (does not start one).")
     add_connection_options(connect)
-    connect.add_argument("--file")
-    connect.add_argument("--headless", action="store_true")
-    connect.add_argument("--hidden", action="store_true")
-    connect.add_argument("--isolated-profile", action="store_true")
-    connect.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT)
     connect.set_defaults(func=cmd_connect)
+
+    start = subparsers.add_parser("start", help="Start LibreOffice with UNO socket listener.")
+    add_connection_options(start)
+    start.add_argument("--headless", action="store_true")
+    start.add_argument("--isolated-profile", action="store_true")
+    start.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT)
+    start.set_defaults(func=cmd_start)
 
     status = subparsers.add_parser("status", help="Show listener and document status.")
     add_connection_options(status)
@@ -162,56 +164,84 @@ class JsonArgumentParser(argparse.ArgumentParser):
 
 def cmd_connect(args: argparse.Namespace) -> dict[str, Any]:
     host, port = connection_target(args, use_session=False)
-    started = False
-    process = None
-    profile = None
     desktop = connect_existing_desktop(host, port)
 
     if desktop is None:
-        if args.isolated_profile:
-            profile = create_isolated_profile()
-        try:
-            process = start_soffice(
-                host,
-                port,
-                headless=args.headless,
-                profile=profile,
-            )
-        except FileNotFoundError as exc:
-            raise UnoApiError(
-                "LIBREOFFICE_NOT_FOUND",
-                str(exc),
-                "Set LIBRE_OFFICE_HOME or add soffice/libreoffice to PATH.",
-            ) from exc
-        started = True
-        desktop = wait_for_uno_desktop(host, port, args.timeout)
-        if desktop is None:
-            raise UnoApiError(
-                "UNO_SOCKET_CONNECT_FAILED",
-                f"Timed out waiting for LibreOffice UNO socket at {host}:{port}.",
-            )
+        raise UnoApiError(
+            "UNO_SOCKET_CONNECT_FAILED",
+            f"Could not connect to LibreOffice UNO socket at {host}:{port}.",
+            "Run: uno-api start",
+        )
 
     document = None
-    if args.file:
-        document = open_spreadsheet(desktop, args.file, hidden=args.hidden)
-    else:
-        try:
-            document = get_current_spreadsheet(desktop)
-        except RuntimeError:
-            document = None
+    try:
+        document = get_current_spreadsheet(desktop)
+    except RuntimeError:
+        document = None
 
     session = {
         "host": host,
         "port": port,
-        "pid": process.pid if process else None,
-        "profile": str(profile) if profile else None,
-        "started_by_uno_api": started,
+        "pid": None,
+        "profile": None,
+        "started_by_uno_api": False,
         "created_at": datetime.now(timezone.utc).astimezone().isoformat(),
     }
     write_session(session)
     return {
         "connected": True,
-        "started": started,
+        "started": False,
+        "host": host,
+        "port": port,
+        "pid": None,
+        "profile": None,
+        "document": document_info(document) if document else None,
+    }
+
+
+def cmd_start(args: argparse.Namespace) -> dict[str, Any]:
+    host, port = connection_target(args, use_session=False)
+    profile = None
+    if args.isolated_profile:
+        profile = create_isolated_profile()
+    try:
+        process = start_soffice(
+            host,
+            port,
+            headless=args.headless,
+            profile=profile,
+        )
+    except FileNotFoundError as exc:
+        raise UnoApiError(
+            "LIBREOFFICE_NOT_FOUND",
+            str(exc),
+            "Set LIBRE_OFFICE_HOME or add soffice/libreoffice to PATH.",
+        ) from exc
+    desktop = wait_for_uno_desktop(host, port, args.timeout)
+    if desktop is None:
+        raise UnoApiError(
+            "UNO_SOCKET_CONNECT_FAILED",
+            f"Timed out waiting for LibreOffice UNO socket at {host}:{port}.",
+        )
+
+    document = None
+    try:
+        document = get_current_spreadsheet(desktop)
+    except RuntimeError:
+        document = None
+
+    session = {
+        "host": host,
+        "port": port,
+        "pid": process.pid,
+        "profile": str(profile) if profile else None,
+        "started_by_uno_api": True,
+        "created_at": datetime.now(timezone.utc).astimezone().isoformat(),
+    }
+    write_session(session)
+    return {
+        "connected": True,
+        "started": True,
         "host": host,
         "port": port,
         "pid": session["pid"],
@@ -419,7 +449,7 @@ def map_runtime_error(exc: RuntimeError) -> UnoApiError:
     if "not a spreadsheet" in lowered:
         return UnoApiError("NOT_SPREADSHEET", text)
     if "could not connect" in lowered or "socket" in lowered:
-        return UnoApiError("UNO_SOCKET_CONNECT_FAILED", text, "Run: uno-api connect")
+        return UnoApiError("UNO_SOCKET_CONNECT_FAILED", text, "Run: uno-api start")
     return UnoApiError("UNO_API_FAILED", text)
 
 
