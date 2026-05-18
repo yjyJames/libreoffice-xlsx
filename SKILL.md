@@ -79,16 +79,10 @@ Do not use `pandas` or `openpyxl` as the default workbook I/O path for reading, 
 
 ## LibreOffice socket workflow
 
-First try to use the existing default UNO connection:
+First try to connect to the existing default UNO listener:
 
 ```bash
-python scripts/uno_api.py status --host 127.0.0.1 --port 2002
-```
-
-If that direct UNO connection succeeds, use the existing LibreOffice session and active workbook. If it fails because `127.0.0.1:2002` is not accepting UNO connections, then connect to or start LibreOffice through the CLI wrapper:
-
-```bash
-python scripts/uno_api.py connect
+python scripts/uno_api.py connect --host 127.0.0.1 --port 2002
 ```
 
 If `connect` fails, start a new LibreOffice instance:
@@ -181,10 +175,10 @@ For lower-level UNO API examples, read `references/libreoffice-python-sdk.md`.
 
 ## Standard workflow
 
-1. Try a direct UNO connection to `127.0.0.1:2002` with `python scripts/uno_api.py status --host 127.0.0.1 --port 2002`.
+1. Try a direct UNO connection to `127.0.0.1:2002` with `python scripts/uno_api.py connect --host 127.0.0.1 --port 2002`.
 2. If the direct connection succeeds, use the existing LibreOffice session and active workbook.
-3. If the direct connection fails, try `python scripts/uno_api.py connect` to reuse a running LibreOffice. If `connect` fails, run `python scripts/uno_api.py start` to start LibreOffice. Then `python scripts/uno_api.py open <workbook>` to open the workbook.
-4. Use `python scripts/uno_api.py status` to confirm a Calc workbook and active sheet are available.
+3. If `connect` fails, run `python scripts/uno_api.py start` to start LibreOffice. Then `python scripts/uno_api.py open <workbook>` to open the workbook.
+4. Use document commands such as `activeSheet` or `listSheets` when you need to confirm the opened Calc workbook state.
 5. Prefer `uno-api` commands for common read/write, sheet, save, recalc, and formula validation operations.
 6. Use spreadsheet formulas instead of Python-calculated hardcoded outputs unless the user explicitly asks for static values.
 7. Call `python scripts/uno_api.py recalc` after formula edits if the command did not already calculate.
@@ -194,13 +188,12 @@ For lower-level UNO API examples, read `references/libreoffice-python-sdk.md`.
 
 ## uno-api commands
 
-### Connect, start, status, open, save
+### Connect, start, open, save
 
 ```bash
 python scripts/uno_api.py connect
 python scripts/uno_api.py start
 python scripts/uno_api.py start --headless --isolated-profile
-python scripts/uno_api.py status
 python scripts/uno_api.py open workbook.xlsx
 python scripts/uno_api.py open workbook.xlsx --hidden
 python scripts/uno_api.py recalc
