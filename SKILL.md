@@ -79,22 +79,38 @@ Do not use `pandas` or `openpyxl` as the default workbook I/O path for reading, 
 
 ## LibreOffice socket workflow
 
+Run the helper scripts with LibreOffice's bundled Python, not the generic `python` command. In commands below, `<LO_PYTHON>` means the shell-specific executable path:
+
+```powershell
+& "$env:LIBRE_OFFICE_HOME\program\python.exe"
+```
+
+```cmd
+"%LIBRE_OFFICE_HOME%\program\python.exe"
+```
+
+```bash
+"$LIBRE_OFFICE_HOME/program/python"
+```
+
+Do not modify `PATH` just to load UNO. If the bundled `program/python` executable is unavailable on the user's platform, use a Python interpreter that can already import `uno`.
+
 First try to connect to the existing default UNO listener:
 
 ```bash
-python scripts/uno_api.py connect --host 127.0.0.1 --port 2002
+"$LIBRE_OFFICE_HOME/program/python" scripts/uno_api.py connect --host 127.0.0.1 --port 2002
 ```
 
 If `connect` fails, start a new LibreOffice instance:
 
 ```bash
-python scripts/uno_api.py start
+"$LIBRE_OFFICE_HOME/program/python" scripts/uno_api.py start
 ```
 
 Then open the workbook:
 
 ```bash
-python scripts/uno_api.py open workbook.xlsx
+"$LIBRE_OFFICE_HOME/program/python" scripts/uno_api.py open workbook.xlsx
 ```
 
 `connect` attempts a real UNO connection to the target socket and only succeeds if LibreOffice is already running; do not use a raw TCP socket probe as the decision point. `start` always launches a new LibreOffice process with a UNO socket listener. With no explicit `--host` or `--port`, the target socket is always the default `127.0.0.1:2002`; do not let an old `.uno-api/session.json` change the target. Use `--headless` only when a non-interactive run is required, and use `--isolated-profile` when the user's existing LibreOffice profile conflicts with automation.
@@ -110,11 +126,11 @@ The command writes `.uno-api/session.json`; later non-`connect` commands use tha
 If `uno-api start` cannot start LibreOffice, start LibreOffice from the user's current shell. Use the command form that matches the environment:
 
 ```powershell
-"$env:LIBRE_OFFICE_HOME\soffice.exe" '--accept=socket,host=127.0.0.1,port=2002;urp;StarOffice.ComponentContext' --norestore --nofirststartwizard
+"$env:LIBRE_OFFICE_HOME\program\soffice.exe" '--accept=socket,host=127.0.0.1,port=2002;urp;StarOffice.ComponentContext' --norestore --nofirststartwizard
 ```
 
 ```cmd
-"%LIBRE_OFFICE_HOME%\soffice.exe" ^
+"%LIBRE_OFFICE_HOME%\program\soffice.exe" ^
   --accept="socket,host=127.0.0.1,port=2002;urp;StarOffice.ComponentContext" ^
   --norestore ^
   --nofirststartwizard
@@ -127,63 +143,61 @@ soffice \
   --nofirststartwizard
 ```
 
-If Python reports `couldn't connect to socket`, do not attempt alternate connection modes. Run `python scripts/uno_api.py start`, or fully close LibreOffice and reopen it with the socket listener command.
+If Python reports `couldn't connect to socket`, do not attempt alternate connection modes. Run `<LO_PYTHON> scripts/uno_api.py start`, or fully close LibreOffice and reopen it with the socket listener command.
 
 ## LIBRE_OFFICE_HOME
 
-Support `LIBRE_OFFICE_HOME` for locating the LibreOffice `program` directory and UNO Python files.
+Support `LIBRE_OFFICE_HOME` as the LibreOffice installation directory, not the `program` directory. The helper code resolves and adds the `program` level automatically when it needs `soffice` or the bundled Python executable.
 
 Set `LIBRE_OFFICE_HOME` using the user's current shell:
 
 ```powershell
-$env:LIBRE_OFFICE_HOME = "<LibreOffice program directory>"
-$env:PATH = "$env:LIBRE_OFFICE_HOME;$env:PATH"
+$env:LIBRE_OFFICE_HOME = "<LibreOffice installation directory>"
 ```
 
 ```cmd
-set "LIBRE_OFFICE_HOME=<LibreOffice program directory>"
-set "PATH=%LIBRE_OFFICE_HOME%;%PATH%"
+set "LIBRE_OFFICE_HOME=<LibreOffice installation directory>"
 ```
 
 ```bash
-export LIBRE_OFFICE_HOME="/path/to/libreoffice/program"
-export PATH="${LIBRE_OFFICE_HOME}:${PATH}"
+export LIBRE_OFFICE_HOME="/path/to/libreoffice"
 ```
 
-Set `PATH` this way before running Python scripts so standard Python can load LibreOffice UNO DLLs/shared libraries and find `soffice`.
+Do not include `program` in `LIBRE_OFFICE_HOME` for new configuration. Do not prepend `program` to `PATH`; run `scripts/uno_api.py` and direct UNO scripts with LibreOffice's bundled Python instead. A legacy value that already points at `program` is still accepted.
 
 Expected files:
 
 ```text
-Windows: %LIBRE_OFFICE_HOME%\soffice.exe
-Windows: %LIBRE_OFFICE_HOME%\uno.py
-Linux:   $LIBRE_OFFICE_HOME/soffice
-Linux:   $LIBRE_OFFICE_HOME/uno.py
-macOS:   $LIBRE_OFFICE_HOME/soffice
+Windows: %LIBRE_OFFICE_HOME%\program\soffice.exe
+Windows: %LIBRE_OFFICE_HOME%\program\python.exe
+Windows: %LIBRE_OFFICE_HOME%\program\uno.py
+Linux:   $LIBRE_OFFICE_HOME/program/soffice
+Linux:   $LIBRE_OFFICE_HOME/program/python
+Linux:   $LIBRE_OFFICE_HOME/program/uno.py
+macOS:   $LIBRE_OFFICE_HOME/Contents/MacOS/soffice
 ```
 
 If `LIBRE_OFFICE_HOME` is unset, check:
 
 ```text
-Windows LibreOffice program directory
-Linux LibreOffice program directory
-macOS LibreOffice MacOS directory
-PATH entries for soffice or libreoffice
+Windows LibreOffice installation directory
+Linux LibreOffice installation directory
+macOS LibreOffice.app bundle directory
 ```
 
 For lower-level UNO API examples, read `references/libreoffice-python-sdk.md`.
 
 ## Standard workflow
 
-1. Try a direct UNO connection to `127.0.0.1:2002` with `python scripts/uno_api.py connect --host 127.0.0.1 --port 2002`.
+1. Try a direct UNO connection to `127.0.0.1:2002` with `<LO_PYTHON> scripts/uno_api.py connect --host 127.0.0.1 --port 2002`.
 2. If the direct connection succeeds, use the existing LibreOffice session and active workbook.
-3. If `connect` fails, run `python scripts/uno_api.py start` to start LibreOffice. Then `python scripts/uno_api.py open <workbook>` to open the workbook.
+3. If `connect` fails, run `<LO_PYTHON> scripts/uno_api.py start` to start LibreOffice. Then `<LO_PYTHON> scripts/uno_api.py open <workbook>` to open the workbook.
 4. Use document commands such as `activeSheet` or `listSheets` when you need to confirm the opened Calc workbook state.
 5. Prefer `uno-api` commands for common read/write, sheet, save, recalc, and formula validation operations.
 6. Use spreadsheet formulas instead of Python-calculated hardcoded outputs unless the user explicitly asks for static values.
-7. Call `python scripts/uno_api.py recalc` after formula edits if the command did not already calculate.
-8. Save with `python scripts/uno_api.py save` or `python scripts/uno_api.py saveAs output.xlsx`.
-9. Run `python scripts/uno_api.py formulaErrors`; fix reported errors and rerun until `status` is `success`.
+7. Call `<LO_PYTHON> scripts/uno_api.py recalc` after formula edits if the command did not already calculate.
+8. Save with `<LO_PYTHON> scripts/uno_api.py save` or `<LO_PYTHON> scripts/uno_api.py saveAs output.xlsx`.
+9. Run `<LO_PYTHON> scripts/uno_api.py formulaErrors`; fix reported errors and rerun until `status` is `success`.
 10. Write direct Python UNO scripts only for operations not covered by `uno-api` (formatting, charts, advanced sheet management, etc.).
 
 ## uno-api commands
@@ -191,25 +205,25 @@ For lower-level UNO API examples, read `references/libreoffice-python-sdk.md`.
 ### Connect, start, open, save
 
 ```bash
-python scripts/uno_api.py connect
-python scripts/uno_api.py start
-python scripts/uno_api.py start --headless --isolated-profile
-python scripts/uno_api.py open workbook.xlsx
-python scripts/uno_api.py open workbook.xlsx --hidden
-python scripts/uno_api.py recalc
-python scripts/uno_api.py save
-python scripts/uno_api.py saveAs output.xlsx
+<LO_PYTHON> scripts/uno_api.py connect
+<LO_PYTHON> scripts/uno_api.py start
+<LO_PYTHON> scripts/uno_api.py start --headless --isolated-profile
+<LO_PYTHON> scripts/uno_api.py open workbook.xlsx
+<LO_PYTHON> scripts/uno_api.py open workbook.xlsx --hidden
+<LO_PYTHON> scripts/uno_api.py recalc
+<LO_PYTHON> scripts/uno_api.py save
+<LO_PYTHON> scripts/uno_api.py saveAs output.xlsx
 ```
 
 ### Cells and ranges
 
 ```bash
-python scripts/uno_api.py getCell A1 --sheet Sheet1 --type all
-python scripts/uno_api.py setCell A1 --text "Revenue"
-python scripts/uno_api.py setCell B2 --value 100
-python scripts/uno_api.py setCell C3 --formula "=SUM(B2:B10)"
-python scripts/uno_api.py getRange A1:D20 --mode data
-python scripts/uno_api.py setRange A1:B2 --json '[[1,2],[3,4]]'
+<LO_PYTHON> scripts/uno_api.py getCell A1 --sheet Sheet1 --type all
+<LO_PYTHON> scripts/uno_api.py setCell A1 --text "Revenue"
+<LO_PYTHON> scripts/uno_api.py setCell B2 --value 100
+<LO_PYTHON> scripts/uno_api.py setCell C3 --formula "=SUM(B2:B10)"
+<LO_PYTHON> scripts/uno_api.py getRange A1:D20 --mode data
+<LO_PYTHON> scripts/uno_api.py setRange A1:B2 --json '[[1,2],[3,4]]'
 ```
 
 `setCell --formula` and `setRange` calculate by default. Use `--no-calc` only when batching many writes and run `recalc` afterward.
@@ -217,11 +231,11 @@ python scripts/uno_api.py setRange A1:B2 --json '[[1,2],[3,4]]'
 ### Sheets and validation
 
 ```bash
-python scripts/uno_api.py listSheets
-python scripts/uno_api.py activeSheet
-python scripts/uno_api.py selectSheet Sheet1
-python scripts/uno_api.py usedRange --sheet Sheet1
-python scripts/uno_api.py formulaErrors
+<LO_PYTHON> scripts/uno_api.py listSheets
+<LO_PYTHON> scripts/uno_api.py activeSheet
+<LO_PYTHON> scripts/uno_api.py selectSheet Sheet1
+<LO_PYTHON> scripts/uno_api.py usedRange --sheet Sheet1
+<LO_PYTHON> scripts/uno_api.py formulaErrors
 ```
 
 `formulaErrors` scans every sheet's used range. It checks UNO `cell.Error` and common displayed error text such as `#REF!`, `#DIV/0!`, `#VALUE!`, `#N/A`, and `#NAME?`.

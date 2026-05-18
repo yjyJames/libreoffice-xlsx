@@ -6,7 +6,6 @@ import os
 import socket
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
@@ -38,24 +37,6 @@ def get_program_dir() -> Path | None:
     return _program_dir(home)
 
 
-def configure_uno_pythonpath() -> Path | None:
-    """Add LibreOffice's program directory so standard Python can import uno."""
-    program = get_program_dir()
-    if not program:
-        return None
-
-    program_str = str(program)
-    if program_str not in sys.path:
-        sys.path.insert(0, program_str)
-
-    path = os.environ.get("PATH", "")
-    parts = path.split(os.pathsep) if path else []
-    if program_str not in parts:
-        os.environ["PATH"] = program_str + (os.pathsep + path if path else "")
-
-    return program
-
-
 def get_soffice_path() -> Path | None:
     program = get_program_dir()
     if program:
@@ -66,6 +47,17 @@ def get_soffice_path() -> Path | None:
 
     found = shutil.which("soffice") or shutil.which("libreoffice")
     return Path(found) if found else None
+
+
+def get_python_path() -> Path | None:
+    program = get_program_dir()
+    if not program:
+        return None
+    for name in ("python.exe", "python"):
+        python = program / name
+        if python.exists():
+            return python
+    return None
 
 
 def is_socket_open(
@@ -146,14 +138,19 @@ def socket_start_command(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> 
     ps_accept = f"'--accept=socket,host={host},port={port};urp;StarOffice.ComponentContext'"
     return "\n".join(
         (
-            'PowerShell: "$env:LIBRE_OFFICE_HOME\\soffice.exe" '
+            'PowerShell: "$env:LIBRE_OFFICE_HOME\\program\\soffice.exe" '
             f"{ps_accept} --norestore --nofirststartwizard",
-            'cmd.exe/.bat: "%LIBRE_OFFICE_HOME%\\soffice.exe" ^\n'
+            'cmd.exe/.bat: "%LIBRE_OFFICE_HOME%\\program\\soffice.exe" ^\n'
             f"  {accept} ^\n"
             "  --norestore ^\n"
             "  --nofirststartwizard",
-            "POSIX shell: "
-            f'"${{LIBRE_OFFICE_HOME}}/soffice" \\\n'
+            "POSIX shell (Linux): "
+            f'"${{LIBRE_OFFICE_HOME}}/program/soffice" \\\n'
+            f"  {accept} \\\n"
+            "  --norestore \\\n"
+            "  --nofirststartwizard\n"
+            "POSIX shell (macOS): "
+            f'"${{LIBRE_OFFICE_HOME}}/Contents/MacOS/soffice" \\\n'
             f"  {accept} \\\n"
             "  --norestore \\\n"
             "  --nofirststartwizard",
@@ -173,11 +170,17 @@ def connection_help(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> str:
 
 
 def _program_dir(home: Path) -> Path | None:
+    """Resolve an install directory to LibreOffice's executable/Python directory.
+
+    LIBRE_OFFICE_HOME is intended to be the install root (for example
+    C:\\Program Files\\LibreOffice), but the direct program directory is accepted
+    for backward compatibility.
+    """
     candidates = (
-        home,
         home / "program",
         home / "Contents" / "MacOS",
         home / "MacOS",
+        home,
     )
     for program in candidates:
         if any((program / name).exists() for name in ("soffice.exe", "soffice", "uno.py")):

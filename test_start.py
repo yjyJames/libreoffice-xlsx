@@ -1,11 +1,15 @@
 import os
 import time
 import subprocess
+
+LIBRE_OFFICE_HOME = os.environ.get("LIBRE_OFFICE_HOME", r"C:\Program Files\LibreOffice")
+PROGRAM_DIR = os.path.join(LIBRE_OFFICE_HOME, "program")
+
+# Run this file with LibreOffice's bundled Python so `uno` imports cleanly.
 import uno
 from com.sun.star.beans import PropertyValue
 
-
-SOFFICE_PATH = r"C:\Program Files\LibreOffice\program\soffice.exe"
+SOFFICE_PATH = os.path.join(PROGRAM_DIR, "soffice.exe")
 XLSX_PATH = r"E:\pythonProject\excel_skill\demo.xlsx"
 
 HOST = "127.0.0.1"

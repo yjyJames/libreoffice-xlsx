@@ -21,6 +21,7 @@ from office.soffice import (
     DEFAULT_PORT,
     DEFAULT_TIMEOUT,
     create_isolated_profile,
+    get_python_path,
     start_soffice,
 )
 from office.uno_session import connect_desktop, get_current_spreadsheet, open_spreadsheet, save_as
@@ -43,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
         error = UnoApiError(
             "UNO_IMPORT_FAILED",
             f"Could not import LibreOffice UNO Python module: {exc}",
-            "Set LIBRE_OFFICE_HOME to the LibreOffice program directory, or run with LibreOffice's Python.",
+            import_uno_hint(),
         )
         print_error(error)
         return error.exit_code
@@ -161,6 +162,16 @@ class JsonArgumentParser(argparse.ArgumentParser):
         raise SystemExit(2)
 
 
+def import_uno_hint() -> str:
+    python = get_python_path()
+    if python:
+        return f'Run this script with LibreOffice Python: "{python}" scripts/uno_api.py ...'
+    return (
+        "Set LIBRE_OFFICE_HOME to the LibreOffice installation directory and run this "
+        "script with LibreOffice's program/python executable."
+    )
+
+
 def cmd_connect(args: argparse.Namespace) -> dict[str, Any]:
     host, port = connection_target(args, use_session=False)
     desktop = connect_existing_desktop(host, port)
@@ -214,7 +225,7 @@ def cmd_start(args: argparse.Namespace) -> dict[str, Any]:
         raise UnoApiError(
             "LIBREOFFICE_NOT_FOUND",
             str(exc),
-            "Set LIBRE_OFFICE_HOME or add soffice/libreoffice to PATH.",
+            "Set LIBRE_OFFICE_HOME to the LibreOffice installation directory.",
         ) from exc
     desktop = wait_for_uno_desktop(host, port, args.timeout)
     if desktop is None:

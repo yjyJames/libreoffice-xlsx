@@ -11,25 +11,22 @@ Do not use pipe mode. Do not auto-start a headless LibreOffice process. Connect 
 Use the command form that matches the user's shell.
 
 ```powershell
-$env:LIBRE_OFFICE_HOME = "<LibreOffice program directory>"
-$env:PATH = "$env:LIBRE_OFFICE_HOME;$env:PATH"
+$env:LIBRE_OFFICE_HOME = "<LibreOffice installation directory>"
 
-"$env:LIBRE_OFFICE_HOME\soffice.exe" '--accept=socket,host=127.0.0.1,port=2002;urp;StarOffice.ComponentContext' --norestore --nofirststartwizard
+"$env:LIBRE_OFFICE_HOME\program\soffice.exe" '--accept=socket,host=127.0.0.1,port=2002;urp;StarOffice.ComponentContext' --norestore --nofirststartwizard
 ```
 
 ```cmd
-set "LIBRE_OFFICE_HOME=<LibreOffice program directory>"
-set "PATH=%LIBRE_OFFICE_HOME%;%PATH%"
-"%LIBRE_OFFICE_HOME%\soffice.exe" ^
+set "LIBRE_OFFICE_HOME=<LibreOffice installation directory>"
+"%LIBRE_OFFICE_HOME%\program\soffice.exe" ^
   --accept="socket,host=127.0.0.1,port=2002;urp;StarOffice.ComponentContext" ^
   --norestore ^
   --nofirststartwizard
 ```
 
 ```bash
-export LIBRE_OFFICE_HOME="/path/to/libreoffice/program"
-export PATH="${LIBRE_OFFICE_HOME}:${PATH}"
-"${LIBRE_OFFICE_HOME}/soffice" \
+export LIBRE_OFFICE_HOME="/path/to/libreoffice"
+"${LIBRE_OFFICE_HOME}/program/soffice" \
   --accept="socket,host=127.0.0.1,port=2002;urp;StarOffice.ComponentContext" \
   --norestore \
   --nofirststartwizard
@@ -46,32 +43,48 @@ If LibreOffice is already open and Python cannot connect, fully close LibreOffic
 
 ## Configure Python for UNO
 
-`LIBRE_OFFICE_HOME` should point to the LibreOffice `program` directory when standard Python cannot import `uno` directly. Common values:
+`LIBRE_OFFICE_HOME` should point to the LibreOffice installation directory when standard Python cannot import `uno` directly. Do not include the `program` level in new configuration; run scripts with LibreOffice's bundled Python instead of modifying `PATH`. Common values:
 
 ```text
-Windows LibreOffice program directory
-Linux LibreOffice program directory
-macOS LibreOffice MacOS directory
+Windows LibreOffice installation directory
+Linux LibreOffice installation directory
+macOS LibreOffice.app bundle directory
 ```
 
-Set `PATH` before running Python scripts so standard Python can load LibreOffice UNO DLLs/shared libraries and find `soffice`. The Python helper also adds `LIBRE_OFFICE_HOME` directly to `PATH` and `sys.path` for the current Python process.
+Use the LibreOffice Python executable for scripts that import `uno`:
+
+```powershell
+& "$env:LIBRE_OFFICE_HOME\program\python.exe" scripts\uno_api.py connect
+```
+
+```cmd
+"%LIBRE_OFFICE_HOME%\program\python.exe" scripts\uno_api.py connect
+```
+
+```bash
+"$LIBRE_OFFICE_HOME/program/python" scripts/uno_api.py connect
+```
+
+The helper derives the program directory when it needs `soffice`. A legacy `LIBRE_OFFICE_HOME` value that already points at `program` is still accepted.
 
 Expected files:
 
 ```text
-%LIBRE_OFFICE_HOME%\soffice.exe
-%LIBRE_OFFICE_HOME%\uno.py
-$LIBRE_OFFICE_HOME/soffice
-$LIBRE_OFFICE_HOME/uno.py
+%LIBRE_OFFICE_HOME%\program\soffice.exe
+%LIBRE_OFFICE_HOME%\program\python.exe
+%LIBRE_OFFICE_HOME%\program\uno.py
+$LIBRE_OFFICE_HOME/program/soffice
+$LIBRE_OFFICE_HOME/program/python
+$LIBRE_OFFICE_HOME/program/uno.py
+$LIBRE_OFFICE_HOME/Contents/MacOS/soffice
 ```
 
 If `LIBRE_OFFICE_HOME` is unset, check these defaults:
 
 ```text
-Windows LibreOffice program directory
-Linux LibreOffice program directory
-macOS LibreOffice MacOS directory
-PATH entries for soffice or libreoffice
+Windows LibreOffice installation directory
+Linux LibreOffice installation directory
+macOS LibreOffice.app bundle directory
 ```
 
 ## Connect

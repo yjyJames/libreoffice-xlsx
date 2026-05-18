@@ -5,11 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .soffice import DEFAULT_HOST, DEFAULT_PORT, configure_uno_pythonpath, connection_help
+from .soffice import DEFAULT_HOST, DEFAULT_PORT, connection_help
 
 
 def import_uno():
-    configure_uno_pythonpath()
     import uno  # type: ignore
 
     return uno
